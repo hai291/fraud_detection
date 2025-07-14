@@ -1,0 +1,342 @@
+name: Team Work Tracking & Notifications
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+    types:
+      - opened
+      - closed
+      - synchronize
+
+jobs:
+  track_push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get commit details
+        id: commit_info
+        run: |
+          # Get commit info
+          COMMIT_SHA="${{ github.sha }}"
+          COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s")
+          COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
+          COMMIT_EMAIL=$(git log -1 --pretty=format:"%ae")
+          COMMIT_DATE=$(git log -1 --pretty=format:"%ad" --date=format:'%Y-%m-%d %H:%M:%S')
+          COMMIT_URL="${{ github.event.repository.html_url }}/commit/${COMMIT_SHA}"
+          
+          # Get changed files
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD | wc -l)
+          FILES_LIST=$(git diff --name-only HEAD~1 HEAD | head -10)
+          
+          # Get file changes stats
+          ADDITIONS=$(git diff --stat HEAD~1 HEAD | tail -1 | grep -o '[0-9]* insertion' | grep -o '[0-9]*' || echo "0")
+          DELETIONS=$(git diff --stat HEAD~1 HEAD | tail -1 | grep -o '[0-9]* deletion' | grep -o '[0-9]*' || echo "0")
+          
+          # Save to environment
+          echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_ENV
+          echo "COMMIT_MESSAGE=${COMMIT_MESSAGE}" >> $GITHUB_ENV
+          echo "COMMIT_AUTHOR=${COMMIT_AUTHOR}" >> $GITHUB_ENV
+          echo "COMMIT_EMAIL=${COMMIT_EMAIL}" >> $GITHUB_ENV
+          echo "COMMIT_DATE=${COMMIT_DATE}" >> $GITHUB_ENV
+          echo "COMMIT_URL=${COMMIT_URL}" >> $GITHUB_ENV
+          echo "CHANGED_FILES=${CHANGED_FILES}" >> $GITHUB_ENV
+          echo "ADDITIONS=${ADDITIONS}" >> $GITHUB_ENV
+          echo "DELETIONS=${DELETIONS}" >> $GITHUB_ENV
+          
+          # Format files list for message
+          FILES_MESSAGE=""
+          while IFS= read -r file; do
+            if [ ! -z "$file" ]; then
+              FILES_MESSAGE="${FILES_MESSAGE}- \`${file}\`\\n"
+            fi
+          done <<< "$FILES_LIST"
+          echo "FILES_MESSAGE=${FILES_MESSAGE}" >> $GITHUB_ENV
+
+      - name: Send Telegram notification for push
+        if: always()
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_MESSAGE_ID: ${{ secrets.TELEGRAM_MESSAGE_ID }}
+        run: |
+          # Create message
+          MESSAGE="🔄 *New Push to Develop Branch*\\n\\n"
+          MESSAGE="${MESSAGE}👤 *Author*: ${COMMIT_AUTHOR}\\n"
+          MESSAGE="${MESSAGE}📅 *Date*: ${COMMIT_DATE}\\n"
+          MESSAGE="${MESSAGE}💬 *Message*: ${COMMIT_MESSAGE}\\n"
+          MESSAGE="${MESSAGE}📊 *Changes*: ${CHANGED_FILES} files (+${ADDITIONS}/-${DELETIONS})\\n"
+          MESSAGE="${MESSAGE}🔗 *Commit*: [${COMMIT_SHA:0:7}](${COMMIT_URL})\\n\\n"
+          
+          if [ ${CHANGED_FILES} -gt 0 ]; then
+            MESSAGE="${MESSAGE}📁 *Modified Files*:\\n${FILES_MESSAGE}"
+          fi
+          
+          # Send to Telegram
+          curl -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"chat_id\": \"${TELEGRAM_CHAT_ID}\",
+              \"message_thread_id\": \"${TELEGRAM_MESSAGE_ID}\",
+              \"text\": \"${MESSAGE}\",
+              \"parse_mode\": \"Markdown\",
+              \"disable_web_page_preview\": true
+            }"
+
+      - name: Send Discord notification for push
+        if: always()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
+        run: |
+          # Create Discord embed
+          EMBED_COLOR="3447003"  # Blue color
+          
+          # Create embed JSON
+          EMBED_JSON=$(cat <<EOF
+          {
+            "embeds": [{
+              "title": "🔄 New Push to Develop Branch",
+              "color": ${EMBED_COLOR},
+              "fields": [
+                {
+                  "name": "👤 Author",
+                  "value": "${COMMIT_AUTHOR}",
+                  "inline": true
+                },
+                {
+                  "name": "📅 Date",
+                  "value": "${COMMIT_DATE}",
+                  "inline": true
+                },
+                {
+                  "name": "📊 Changes",
+                  "value": "${CHANGED_FILES} files (+${ADDITIONS}/-${DELETIONS})",
+                  "inline": true
+                },
+                {
+                  "name": "💬 Commit Message",
+                  "value": "${COMMIT_MESSAGE}",
+                  "inline": false
+                },
+                {
+                  "name": "🔗 Commit Link",
+                  "value": "[${COMMIT_SHA:0:7}](${COMMIT_URL})",
+                  "inline": false
+                }
+              ],
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+            }]
+          }
+          EOF
+          )
+          
+          # Send to Discord via webhook (if webhook URL is provided)
+          if [ ! -z "${DISCORD_WEBHOOK}" ]; then
+            curl -X POST "${DISCORD_WEBHOOK}" \
+              -H "Content-Type: application/json" \
+              -d "${EMBED_JSON}"
+          fi
+          
+          # Or send via bot API (if bot token and channel ID are provided)
+          if [ ! -z "${DISCORD_BOT_TOKEN}" ] && [ ! -z "${DISCORD_CHANNEL_ID}" ]; then
+            curl -X POST "https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages" \
+              -H "Authorization: Bot ${DISCORD_BOT_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "${EMBED_JSON}"
+          fi
+
+  track_pull_request:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR details
+        id: pr_info
+        run: |
+          # Get PR info
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          PR_ACTION="${{ github.event.action }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_BODY="${{ github.event.pull_request.body }}"
+          
+          # Get changed files in PR
+          CHANGED_FILES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" | \
+            jq -r '.[].filename' | wc -l)
+          
+          # Get PR stats
+          ADDITIONS="${{ github.event.pull_request.additions }}"
+          DELETIONS="${{ github.event.pull_request.deletions }}"
+          
+          # Save to environment
+          echo "PR_TITLE=${PR_TITLE}" >> $GITHUB_ENV
+          echo "PR_URL=${PR_URL}" >> $GITHUB_ENV
+          echo "PR_AUTHOR=${PR_AUTHOR}" >> $GITHUB_ENV
+          echo "PR_ACTION=${PR_ACTION}" >> $GITHUB_ENV
+          echo "PR_NUMBER=${PR_NUMBER}" >> $GITHUB_ENV
+          echo "PR_BODY=${PR_BODY}" >> $GITHUB_ENV
+          echo "CHANGED_FILES=${CHANGED_FILES}" >> $GITHUB_ENV
+          echo "ADDITIONS=${ADDITIONS}" >> $GITHUB_ENV
+          echo "DELETIONS=${DELETIONS}" >> $GITHUB_ENV
+          
+          # Set emoji based on action
+          case "$PR_ACTION" in
+            "opened") echo "PR_EMOJI=🔄" >> $GITHUB_ENV ;;
+            "closed") 
+              if [ "${{ github.event.pull_request.merged }}" == "true" ]; then
+                echo "PR_EMOJI=✅" >> $GITHUB_ENV
+              else
+                echo "PR_EMOJI=❌" >> $GITHUB_ENV
+              fi
+              ;;
+            "synchronize") echo "PR_EMOJI=🔄" >> $GITHUB_ENV ;;
+            *) echo "PR_EMOJI=📝" >> $GITHUB_ENV ;;
+          esac
+
+      - name: Send Telegram notification for PR
+        if: always()
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_MESSAGE_ID: ${{ secrets.TELEGRAM_MESSAGE_ID }}
+        run: |
+          # Create action text
+          case "$PR_ACTION" in
+            "opened") ACTION_TEXT="opened" ;;
+            "closed") 
+              if [ "${{ github.event.pull_request.merged }}" == "true" ]; then
+                ACTION_TEXT="merged"
+              else
+                ACTION_TEXT="closed"
+              fi
+              ;;
+            "synchronize") ACTION_TEXT="updated" ;;
+            *) ACTION_TEXT="$PR_ACTION" ;;
+          esac
+          
+          # Create message
+          MESSAGE="${PR_EMOJI} *Pull Request ${ACTION_TEXT}*\\n\\n"
+          MESSAGE="${MESSAGE}👤 *Author*: ${PR_AUTHOR}\\n"
+          MESSAGE="${MESSAGE}📋 *Title*: ${PR_TITLE}\\n"
+          MESSAGE="${MESSAGE}🔢 *PR Number*: #${PR_NUMBER}\\n"
+          MESSAGE="${MESSAGE}📊 *Changes*: ${CHANGED_FILES} files (+${ADDITIONS}/-${DELETIONS})\\n"
+          MESSAGE="${MESSAGE}🔗 *Link*: [View PR](${PR_URL})\\n"
+          
+          if [ ! -z "$PR_BODY" ]; then
+            BODY_PREVIEW=$(echo "$PR_BODY" | head -c 200)
+            MESSAGE="${MESSAGE}\\n📝 *Description*: ${BODY_PREVIEW}..."
+          fi
+          
+          # Send to Telegram
+          curl -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"chat_id\": \"${TELEGRAM_CHAT_ID}\",
+              \"message_thread_id\": \"${TELEGRAM_MESSAGE_ID}\",
+              \"text\": \"${MESSAGE}\",
+              \"parse_mode\": \"Markdown\",
+              \"disable_web_page_preview\": true
+            }"
+
+      - name: Send Discord notification for PR
+        if: always()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
+        run: |
+          # Set color based on action
+          case "$PR_ACTION" in
+            "opened") EMBED_COLOR="3447003" ;;  # Blue
+            "closed") 
+              if [ "${{ github.event.pull_request.merged }}" == "true" ]; then
+                EMBED_COLOR="3066993"  # Green
+              else
+                EMBED_COLOR="15158332"  # Red
+              fi
+              ;;
+            "synchronize") EMBED_COLOR="16776960" ;;  # Yellow
+            *) EMBED_COLOR="3447003" ;;  # Blue
+          esac
+          
+          # Create action text
+          case "$PR_ACTION" in
+            "opened") ACTION_TEXT="opened" ;;
+            "closed") 
+              if [ "${{ github.event.pull_request.merged }}" == "true" ]; then
+                ACTION_TEXT="merged"
+              else
+                ACTION_TEXT="closed"
+              fi
+              ;;
+            "synchronize") ACTION_TEXT="updated" ;;
+            *) ACTION_TEXT="$PR_ACTION" ;;
+          esac
+          
+          # Create embed JSON
+          EMBED_JSON=$(cat <<EOF
+          {
+            "embeds": [{
+              "title": "${PR_EMOJI} Pull Request ${ACTION_TEXT}",
+              "color": ${EMBED_COLOR},
+              "fields": [
+                {
+                  "name": "👤 Author",
+                  "value": "${PR_AUTHOR}",
+                  "inline": true
+                },
+                {
+                  "name": "🔢 PR Number",
+                  "value": "#${PR_NUMBER}",
+                  "inline": true
+                },
+                {
+                  "name": "📊 Changes",
+                  "value": "${CHANGED_FILES} files (+${ADDITIONS}/-${DELETIONS})",
+                  "inline": true
+                },
+                {
+                  "name": "📋 Title",
+                  "value": "${PR_TITLE}",
+                  "inline": false
+                },
+                {
+                  "name": "🔗 Link",
+                  "value": "[View Pull Request](${PR_URL})",
+                  "inline": false
+                }
+              ],
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+            }]
+          }
+          EOF
+          )
+          
+          # Send to Discord via webhook (if webhook URL is provided)
+          if [ ! -z "${DISCORD_WEBHOOK}" ]; then
+            curl -X POST "${DISCORD_WEBHOOK}" \
+              -H "Content-Type: application/json" \
+              -d "${EMBED_JSON}"
+          fi
+          
+          # Or send via bot API (if bot token and channel ID are provided)
+          if [ ! -z "${DISCORD_BOT_TOKEN}" ] && [ ! -z "${DISCORD_CHANNEL_ID}" ]; then
+            curl -X POST "https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages" \
+              -H "Authorization: Bot ${DISCORD_BOT_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "${EMBED_JSON}"
+          fi
