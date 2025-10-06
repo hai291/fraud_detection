@@ -1,34 +1,36 @@
 # Model Configuration
 model:
-  name: "transformer_model"
-  architecture: "transformer"
-  
-  # Model parameters
-  hidden_size: 768
-  num_layers: 12
-  num_attention_heads: 12
-  intermediate_size: 3072
-  max_position_embeddings: 512
-  vocab_size: 30522
-  
-  # Dropout
-  hidden_dropout_prob: 0.1
-  attention_probs_dropout_prob: 0.1
-  
+  name: "SimpleMLP"
+
+  # Architecture
+  input_dim: <depend on data>   
+  hidden_dims: [8, 8]
+  output_dim: 2
+
+  # Regularization
+  dropout: 0.1
+
   # Activation
-  hidden_act: "gelu"
-  
+  hidden_act: "ReLU"
+
   # Initialization
-  initializer_range: 0.02
-  
+  initializer: "default" 
+
+# Training configuration
+training:
+  optimizer: "Adam"
+  learning_rate: 0.0005
+  weight_decay: 1e-4
+  loss_function: "NLLLoss"
+  epochs: 200
+  runs: 5
+  seed: 44
+
 # Task specific parameters
 task:
   num_labels: 2
   problem_type: "single_label_classification"
-  
-# Model checkpoint
-checkpoint:
-  save_dir: "checkpoints"
-  save_steps: 1000
-  save_total_limit: 3
-  load_from_checkpoint: null
+
+# Evaluation metrics
+evaluation:
+  metrics: ["f1_macro", "roc_auc"]

@@ -1,51 +1,32 @@
-# Training Configuration
 training:
-  # Basic training parameters
-  learning_rate: 2e-5
-  batch_size: 16
-  num_epochs: 10
-  warmup_steps: 500
-  weight_decay: 0.01
+
+  learning_rate: 5e-4         
+  batch_size: null               
+  num_epochs: 200              
+  warmup_steps: 0             
+  weight_decay: 1e-4          
+
   
-  # Gradient parameters
   gradient_accumulation_steps: 1
-  max_grad_norm: 1.0
-  
-  # Scheduler
-  scheduler_type: "linear"
-  
-  # Optimization
-  optimizer: "adamw"
-  adam_epsilon: 1e-8
+  max_grad_norm: null            
+
+  scheduler_type: null          
+
+
+  optimizer: "adam"          
   adam_beta1: 0.9
   adam_beta2: 0.999
-  
-  # Mixed precision
-  fp16: true
-  fp16_opt_level: "O1"
-  
-  # Logging
-  logging_steps: 100
-  eval_steps: 500
-  
-  # Early stopping
-  early_stopping_patience: 3
-  early_stopping_threshold: 0.01
-  
-# Accelerate configuration
-accelerate:
-  gradient_accumulation_steps: 1
-  mixed_precision: "fp16"
-  
-# Wandb configuration
-wandb:
-  project: "base-research-project"
-  entity: "bailab"
-  name: null  # Will be generated automatically
-  tags: []
-  notes: ""
-  
-# Output directory
-output_dir: "outputs"
-logging_dir: "logs"
-cache_dir: "cache"
+  adam_epsilon: 1e-8
+
+
+  logging_steps: 20             
+  eval_steps: 20                 
+
+
+  early_stopping_threshold: 0.001
+  early_stopping_patience: 10
+
+
+
+
+

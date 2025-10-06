@@ -1,0 +1,13 @@
+[project]
+name = "gat"
+version = "0.1.0"
+description = "Custom GAT"
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "torch==2.4.0",
+    "dgl @ https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html",
+    "numpy==2.3.3",
+    "scikit-learn==1.7.2",
+]
