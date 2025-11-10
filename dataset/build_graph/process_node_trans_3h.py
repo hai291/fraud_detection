@@ -22,93 +22,125 @@ def get_address_id(address, address_to_id, next_addr_id):
         next_addr_id += 1
     return address_to_id[address], next_addr_id
 
-def process_trans_id(type_, class_name, phish_set, address_to_id, next_addr_id, unique_hash):
+def process_trans_id(type_, class_name, address_to_id, next_addr_id, unique_hash):
 
     if class_name == 'phisher':
-        path = f'/home/hainguyen/fraud-detection-credit/dataset/raw/phish_trans/{class_name}_transaction_{type_}.csv'
+        path = f'/home/hains/Data_B4E/phish_trans/{class_name}_transaction_{type_}.csv'
     else:
-        path = f'/home/hainguyen/fraud-detection-credit/dataset/raw/normal_trans/{class_name}_eoa_transaction_{type_}_slice_1000K.csv'
+        path = f'/home/hains/Data_B4E/normal_trans/{class_name}_eoa_transaction_{type_}_slice_1000K.csv'
 
-    df = pd.read_csv(path)
+    df = pd.read_csv(path, names=HEADER)
+    df = df.sort_values(by='block_timestamp')
     print(f"Loaded {len(df)} transactions from {path}")
 
-    start_time = df['block_timestamp'].iloc[0]
-    first_index = 0
+    window_size = 14 * 24 * 3600  
+    active_period = 3 * 3600    
+
     edges = []
-    label_dict = {}
-    feature_dict = {}
+    label_dict = {}     
+    feature_dict = {}    
+    node_not_edges = []  
 
-    while True:
 
-        found_3h = False
-        for row in df.iloc[first_index:].itertuples(index=True):
-            if row.block_timestamp - start_time >= 10800: 
-                last_index = row.Index
-                last_timestamp = row.block_timestamp
-                three_hour_slice = df.iloc[first_index:last_index]
+    from_map = defaultdict(list)   
+    to_map = defaultdict(list)    
+    window_tx = []             
 
-                from_map = defaultdict(list) 
-                to_map = defaultdict(list)   
 
-                for tx in three_hour_slice.itertuples(index=True):
-                    if tx.hash in unique_hash:
-                        continue
-                    unique_hash.add(tx.hash)
+    if df.shape[0] == 0:
+        return edges, label_dict, feature_dict, address_to_id, next_addr_id, unique_hash, node_not_edges
 
-                    from_id, next_addr_id = get_address_id(tx.from_address, address_to_id, next_addr_id)
-                    to_id, next_addr_id = get_address_id(tx.to_address, address_to_id, next_addr_id)
+    start_time = df['block_timestamp'].iloc[0]
+    window_end = start_time + window_size
 
-                    label_value = 1 if tx.from_address in phish_set or tx.to_address in phish_set else 0
-                    feature_value = [from_id, to_id, float(tx.value) / 1e12, tx.block_timestamp]
+    for row in df.itertuples(index=False):
 
-                    label_dict[tx.hash] = label_value
-                    feature_dict[tx.hash] = feature_value
+        if row.hash in unique_hash:
+            continue
+        unique_hash.add(row.hash)
 
-                    from_map[from_id].append(tx.hash)
-                    to_map[to_id].append(tx.hash)
 
-    
-                for _, tx_hashes in from_map.items():
-                    for tx_hash in tx_hashes:
+        from_id, next_addr_id = get_address_id(row.from_address, address_to_id, next_addr_id)
+        to_id, next_addr_id = get_address_id(row.to_address, address_to_id, next_addr_id)
+
+        label_value = 1 if class_name == 'phisher' else 0
+        feature_value = [from_id, to_id, float(row.value) / 1e12, row.block_timestamp]
+        label_dict[row.hash] = label_value
+        feature_dict[row.hash] = feature_value
+
+
+        window_tx.append(row.hash)
+
+        t = row.block_timestamp
+
+
+        if t > window_end:
+
+            for addr in to_map:
+                if addr in from_map:
+                    for tx_in, t_in_ts in to_map[addr]:
+                        for tx_out, t_out_ts in from_map[addr]:
   
-                        to_id = feature_dict[tx_hash][1]
-                        if to_id in from_map:
-                            for next_tx in from_map[to_id]:
-                                edges.append((tx_hash, next_tx))
-
-                first_index = last_index
-                start_time = last_timestamp
-                found_3h = True
-                break
-
-        if not found_3h:
-            break
+                            if t_in_ts <= t_out_ts:
+                                edges.append((tx_in, tx_out))
 
 
-        found_2w = False
-        for row in df.iloc[first_index:].itertuples(index=True):
-            if row.block_timestamp - start_time >= 1209600:
-                first_index = row.Index
-                start_time = row.block_timestamp
-                found_2w = True
-                break
-        if not found_2w:
-            break
 
-    print(f"→ Done {class_name} {type_}: {len(edges)} edges, {len(label_dict)} transactions")
-    return edges, label_dict, feature_dict, address_to_id, next_addr_id, unique_hash
+            node_not_edges.append(list(window_tx))
 
-def build_graph(label_dict, feature_dict, address_to_id, edge_list, save_path):
-    tx_to_id = {tx: idx for idx, tx in enumerate(label_dict.keys())}
-    num_nodes = len(tx_to_id)
+            from_map.clear()
+            to_map.clear()
+            window_tx.clear()
+            start_time = t
+            window_end = start_time + window_size
 
-    source_nodes = [tx_to_id[u] for u, v in edge_list if u in tx_to_id and v in tx_to_id]
-    destination_nodes = [tx_to_id[v] for u, v in edge_list if u in tx_to_id and v in tx_to_id]
 
-    graph = dgl.graph((source_nodes, destination_nodes), num_nodes=num_nodes)
 
-    label_tensor = torch.tensor([label_dict[tx] for tx in label_dict], dtype=torch.long)
-    feature_tensor = torch.tensor([feature_dict[tx] for tx in feature_dict], dtype=torch.float32)
+
+        if t - start_time <= active_period:
+            from_map[from_id].append((row.hash, t))
+            to_map[to_id].append((row.hash, t))
+
+
+
+    if to_map:
+        for addr in to_map:
+            if addr in from_map:
+                for tx_in, t_in_ts in to_map[addr]:
+                    for tx_out, t_out_ts in from_map[addr]:
+                        if t_in_ts <= t_out_ts:
+                            edges.append((tx_in, tx_out))
+
+
+    if window_tx:
+        node_not_edges.append(list(window_tx))
+
+    print(f"→ Done {class_name} {type_}: {len(edges)} edges, {len(label_dict)} transactions (nodes)")
+    return edges, label_dict, feature_dict, address_to_id, next_addr_id, unique_hash, node_not_edges
+
+
+def build_graph(label_dict, feature_dict, address_to_id, edge_list, node_not_edges, save_path):
+
+    tx_list = list(label_dict.keys())
+    tx_to_id = {tx: idx for idx, tx in enumerate(tx_list)}
+    num_nodes = len(tx_list)
+
+
+    src = []
+    dst = []
+    for u_hash, v_hash in edge_list:
+        if u_hash in tx_to_id and v_hash in tx_to_id:
+            src.append(tx_to_id[u_hash])
+            dst.append(tx_to_id[v_hash])
+
+
+    graph = dgl.graph((src, dst), num_nodes=num_nodes)
+
+
+    label_tensor = torch.tensor([label_dict[tx] for tx in tx_list], dtype=torch.long)
+    feature_tensor = torch.tensor([feature_dict[tx] for tx in tx_list], dtype=torch.float32)
+
+
     indices = list(range(num_nodes))
     random.shuffle(indices)
     train_split = int(0.7 * num_nodes)
@@ -128,26 +160,36 @@ def build_graph(label_dict, feature_dict, address_to_id, edge_list, save_path):
     graph.ndata['test_mask'] = test_mask
 
     dgl.save_graphs(save_path, [graph])
-    print(f"\nGraph built with {num_nodes} nodes, {len(edge_list)} edges.")
+    print(f"\nGraph built with {num_nodes} nodes, {len(src)} edges.")
     print(f"Saved to: {save_path}")
+
+
+    indeg = graph.in_degrees().numpy()
+    outdeg = graph.out_degrees().numpy()
+    isolated = int(((indeg + outdeg) == 0).sum())
+    print(f"Isolated nodes (degree 0): {isolated} / {num_nodes}")
+
     return graph
 
+
 if __name__ == '__main__':
-    phish_set = load_phish_set('/home/hainguyen/fraud-detection-credit/dataset/raw/phisher_account.txt')
+
 
     address_to_id = {}
     next_addr_id = 0
     unique_hash = set()
-
-    all_edges, all_labels, all_features = [], {}, {}
+    all_edges, all_labels, all_features, node_not_edges = [], {}, {}, []
 
     for type_, cls in [('in', 'phisher'), ('out', 'phisher'), ('in', 'normal'), ('out', 'normal')]:
-        edges, lbl, feat, address_to_id, next_addr_id, unique_hash = process_trans_id(
-            type_, cls, phish_set, address_to_id, next_addr_id, unique_hash
+        edges, lbl, feat, address_to_id, next_addr_id, unique_hash, not_edges = process_trans_id(
+            type_, cls, address_to_id, next_addr_id, unique_hash
         )
         all_edges.extend(edges)
         all_labels.update(lbl)
         all_features.update(feat)
+        node_not_edges.extend(not_edges)
 
+    with open('/home/hains/Data_B4E/edge_list_total.pkl', 'wb') as f:
+        pkl.dump(all_edges, f)
 
-    build_graph(all_labels, all_features, address_to_id, all_edges, '/home/hainguyen/fraud-detection-credit/dataset/processed/b4e_trans_3h')
+    build_graph(all_labels, all_features, address_to_id, all_edges, node_not_edges, '/home/hains/Data_B4E/b4e_trans_3h')
