@@ -25,14 +25,15 @@ base-research-repo/
 │       ├── MLP.py
 │       └── pyproject.toml
 ```
-Bulding graph
+``` bash
+# Bulding graph
 cd dataset/build_graph
 python process_node_address_all.py
 
-Split train_test_split 
+# Split train_test_split 
 python main.py
 
-Training
+# Training
 cd ..
 python GCN.py
 python GAT.py
