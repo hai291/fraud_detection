@@ -28,9 +28,9 @@ def get_address_id(address, address_to_id, next_addr_id):
 def process_address_graph(type_, class_name, phish_set, address_to_id, next_addr_id):
 
     if class_name == 'phisher':
-        path = f'/home/hainguyen/fraud-detection-credit/dataset/raw/phish_trans/{class_name}_transaction_{type_}.csv'
+        path = f'./raw/phish_trans/{class_name}_transaction_{type_}.csv'
     else:
-        path = f'/home/hainguyen/fraud-detection-credit/dataset/raw/normal_trans/{class_name}_eoa_transaction_{type_}_slice_1000K.csv'
+        path = f'./normal_trans/{class_name}_eoa_transaction_{type_}_slice_1000K.csv'
 
     df = pd.read_csv(path)
     df = df.sort_values('block_timestamp').reset_index(drop=True)
@@ -114,7 +114,7 @@ def build_graph_from_addresses(all_edges, phish_set, address_to_id,
 
 
 if __name__ == "__main__":
-    phish_set = load_phish_set('/home/hainguyen/fraud-detection-credit/dataset/raw/phisher_account.txt')
+    phish_set = load_phish_set('./raw/phisher_account.txt')
     address_to_id = {}
     next_addr_id = 0
 
@@ -140,5 +140,5 @@ if __name__ == "__main__":
     build_graph_from_addresses(
         all_edges, phish_set, address_to_id,
         total_out, total_in, total_out_value, total_in_value, total_ts,
-        '/home/hainguyen/fraud-detection-credit/dataset/processed/b4e_address_graph_all'
+        './build_graph/b4e_address_graph_all'
     )

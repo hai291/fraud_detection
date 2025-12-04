@@ -100,28 +100,26 @@ User Features (36 handcrafted features)
 ### Preprocessing Steps
 1. **Data splitting**: 70% train, 10% validation, 20% test
    
-## Dataset 1: [ELLIPTIC]
+## Dataset 3: [B4E]
 
 ### Description
-Type: Bitcoin transaction dataset
+Type: ETH transaction dataset
 
-Nodes: Each node represents a single transaction
+Nodes: Each node represents a single account
 
 Edges: Edges represent accounts interacting with each other through transactions
 
-Features: Transaction features exist but are not publicly disclosed for privacy/security reasons
+Features: The features were manually extracted by me from the raw data.
 
 ### Source
-- **URL**: [https://www.kaggle.com/datasets/ellipticco/elliptic-data-set]
-- **Paper**: [Anti-Money Laundering in Bitcoin: Experimenting with Graph Convolutional Networks for Financial Forensics]
-- **License**: [CC BY-NC-ND 4.0]
+- **URL**: [https://dl.acm.org/doi/10.1145/3543507.3583345]
+- **Paper**: [BERT4ETH: A Pre-trained Transformer for Ethereum Fraud Detection]
 
 ### Statistics
-- **Total samples**: [203769]
-- **Training samples**: [32595]
-- **Validation samples**: [4656]
-- **Test samples**: [9313]
-- **Wrong labels**: [157205]
+- **Total samples**: [2750291]
+- **Training samples**: [1925204]
+- **Validation samples**: [275029]
+- **Test samples**: [550058]
 - **Number of classes**: [2]
 
 ### Preprocessing Steps
@@ -129,8 +127,8 @@ Features: Transaction features exist but are not publicly disclosed for privacy/
    
 
 ### Data Distribution
-- **Class 0**: [42019] samples (90.3%) 
-- **Class 1**: [4545] samples (9.7%)
+- **Class 0**: [2746369] samples (99.8%) 
+- **Class 1**: [3922] samples (0.2%)
 
 
 
