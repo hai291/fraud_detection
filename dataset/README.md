@@ -6,11 +6,6 @@
 Thư mục chứa dữ liệu gốc, không được sửa đổi:
 - Dữ liệu download từ nguồn gốc
 
-
-### `processed/`
-Thư mục chứa dữ liệu đã được xử lý:
-- Dữ liệu đã dựng xong đồ thị
-
 ### `build_graph/`(Tóm tắt file code ở phần cách sử dụng)
 Thư mục chứa code xử lý dữ liệu:
     File process_node_address_3h dựng đồ thị với nút là địa chỉ
@@ -24,12 +19,11 @@ Thư mục chứa code xử lý dữ liệu:
 
 ### Dataset 1: [B4E]
 - **Transaction Dataset**:
-        [Phishing account](https://drive.google.com/file/d/11UAhLOcffzLyPhdsIqRuFsJNSqNvrNJf/view?usp=sharing)  
+        [Phishing Account](https://drive.google.com/file/d/11UAhLOcffzLyPhdsIqRuFsJNSqNvrNJf/view?usp=sharing)  
         [Normal Account](https://drive.google.com/file/d/1-htLUymg1UxDrXcI8tslU9wbn0E1vl9_/view?usp=sharing)
+        [Phishing Account](https://github.com/git-disl/BERT4ETH/blob/master/Data/phisher_account.txt)
 - **Định dạng**: [CSV, TXT]
 - **Mô tả**: 
-    
-
     | Cột | Mô tả |
     | `hash` | Mã định danh duy nhất của giao dịch |
     | `nonce` | Số thứ tự giao dịch được gửi bởi địa chỉ `from_address` |
@@ -43,22 +37,9 @@ Thư mục chứa code xử lý dữ liệu:
     | `gas_price` | Giá của mỗi đơn vị gas (wei/gas) |
     | `input` | Dữ liệu giao dịch (mã hex, thường là `0x` nếu chỉ chuyển ETH) |
     | `block_timestamp` | Thời điểm block được xác nhận (UNIX timestamp) |
-    Ba cột cuối có giá trị null nên em không định nghĩa
+    Ba cột cuối có giá trị null nên không định nghĩa
 
 ## Cách sử dụng
-Chạy file 'process_node_address_3h.py' 
-    Node là các địa chỉ ví.
-
-    Edge là các giao dịch (from_address → to_address).
-
-    Chia dữ liệu theo snapshot 3 giờ, và bỏ qua 2 tuần giữa các snapshot.
-    Với mỗi địa chỉ, tính toán các đặc trưng:
-
-    Số giao dịch gửi/nhận.
-
-    Tổng giá trị gửi/nhận (ETH).
-
-    Thời điểm giao dịch cuối cùng.
 Chạy file 'process_node_address_all.py'
     Node là các địa chỉ ví.
 
@@ -72,12 +53,3 @@ Chạy file 'process_node_address_all.py'
     Tổng giá trị gửi/nhận (ETH).
 
     Thời điểm giao dịch cuối cùng.
-Chạy file 'process_node_trans_3h.py'
-    Node: mỗi giao dịch.
-
-    Edge: liên kết giữa hai giao dịch có địa chỉ gửi/nhận liên quan.
-    Chia dữ liệu theo snapshot 3 giờ, và bỏ qua 2 tuần giữa các snapshot.
-
-    Feature: [from_id, to_id, value, timestamp].
-
-    Label: 1 nếu giao dịch liên quan đến ví phisher, ngược lại là 0.
