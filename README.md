@@ -2,6 +2,7 @@
 
 ## Cấu trúc thư mục
 
+```
 base-research-repo/           
 ├── config          # Các file cấu hình cho training
 │   ├── model_config.yaml
@@ -24,4 +25,4 @@ base-research-repo/
 │       ├── MLP.py
 │       └── pyproject.toml
 ├── README.md
-
+```
