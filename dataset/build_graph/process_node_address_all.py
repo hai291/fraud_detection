@@ -30,9 +30,9 @@ def process_address_graph(type_, class_name, phish_set, address_to_id, next_addr
     if class_name == 'phisher':
         path = f'./raw/phish_trans/{class_name}_transaction_{type_}.csv'
     else:
-        path = f'./normal_trans/{class_name}_eoa_transaction_{type_}_slice_1000K.csv'
+        path = f'./raw/normal_trans/{class_name}_eoa_transaction_{type_}_slice_1000K.csv'
 
-    df = pd.read_csv(path)
+    df = pd.read_csv(path, header=None, names=HEADER)
     df = df.sort_values('block_timestamp').reset_index(drop=True)
     print(f'Loaded {len(df)} transactions from {path}')
 
@@ -140,5 +140,5 @@ if __name__ == "__main__":
     build_graph_from_addresses(
         all_edges, phish_set, address_to_id,
         total_out, total_in, total_out_value, total_in_value, total_ts,
-        './build_graph/b4e_address_graph_all'
+        './b4eaddress1/b4eaddress'
     )

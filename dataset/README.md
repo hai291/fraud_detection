@@ -21,7 +21,6 @@ Thư mục chứa code xử lý dữ liệu:
 - **Transaction Dataset**:
         [Phishing Account](https://drive.google.com/file/d/11UAhLOcffzLyPhdsIqRuFsJNSqNvrNJf/view?usp=sharing)  
         [Normal Account](https://drive.google.com/file/d/1-htLUymg1UxDrXcI8tslU9wbn0E1vl9_/view?usp=sharing)
-        [Phishing Account](https://github.com/git-disl/BERT4ETH/blob/master/Data/phisher_account.txt)
 - **Định dạng**: [CSV, TXT]
 - **Mô tả**: 
     | Cột | Mô tả |

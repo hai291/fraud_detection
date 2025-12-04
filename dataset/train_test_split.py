@@ -7,7 +7,7 @@ import time
 from sklearn.model_selection import train_test_split
 import random
 import pygod.utils as pygodutils
-
+import os
 from name import *
 
 def set_seed(seed):
@@ -29,9 +29,13 @@ def set_seed(seed):
 
 
 def load_data(data):
-    datapath = os.path.join(os.path.join(DATADIR, data), data)
-    if data in [WEIBO, REDDIT, TOLOKERS, AMAZON, TFINANCE, YELP, QUESTIONS, DGRAPHFIN, TSOCIAL]:
-        graph, label_dict = load_graphs(datapath)
+    datapath = os.path.join(DATADIR, data + '1')
+    graph_path = os.path.join(datapath, data)
+
+
+    os.makedirs(datapath, exist_ok=True)
+    if data in [WEIBO, REDDIT, TOLOKERS, AMAZON, TFINANCE, YELP, QUESTIONS, DGRAPHFIN, TSOCIAL, B4EAddress]:
+        graph, label_dict = load_graphs(graph_path)
         graph = graph[0]
     else:
         print('no such dataset')
@@ -103,9 +107,9 @@ def split_train_val_test(data, y, trainsz, testsz):
     print("Total size: {}, generate size: {}".format(len(y), len(train_index) + len(val_index) + len(test_index)))
 
 
-    train_path = os.path.join(data, data + TRAIN)
-    val_path = os.path.join(data, data + VAL)
-    test_path = os.path.join(data, data + TEST)
+    train_path = os.path.join(data + '1', data + TRAIN)
+    val_path = os.path.join(data + '1', data + VAL)
+    test_path = os.path.join(data + '1', data + TEST)
 
     np.savetxt(train_path, train_index, fmt='%d')
     np.savetxt(val_path, val_index, fmt='%d')

@@ -12,10 +12,10 @@ from sklearn.metrics import f1_score, roc_auc_score
 
 from dgl.data.utils import load_graphs
 
-GRAPH_PATH = './dataset/weibo1/weibo'    
-TRAIN_IDX_PATH = './dataset/weibo1/weibo_train.txt'
-VAL_IDX_PATH = './dataset/weibo1/weibo_val.txt'
-TEST_IDX_PATH = './dataset/weibo1/weibo_test.txt'
+GRAPH_PATH = './dataset/b4eaddress1/b4eaddress'    
+TRAIN_IDX_PATH = './dataset/b4eaddress1/b4eaddress_train.txt'
+VAL_IDX_PATH = './dataset/b4eaddress1/b4eaddress_val.txt'
+TEST_IDX_PATH = './dataset/b4eaddress1/b4eaddress_test.txt'
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
